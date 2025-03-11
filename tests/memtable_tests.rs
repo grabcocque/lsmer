@@ -51,7 +51,7 @@ fn test_remove_operations() {
     let size_before = memtable.current_size();
 
     // Test remove
-    let removed = memtable.remove(&"key1".to_string());
+    let removed = memtable.remove(&"key1".to_string()).unwrap();
     assert_eq!(removed, Some(vec![1, 2, 3]));
     assert_eq!(memtable.len(), 1);
     assert_eq!(memtable.get(&"key1".to_string()), None);
@@ -60,7 +60,7 @@ fn test_remove_operations() {
     assert!(memtable.current_size() < size_before);
 
     // Test remove non-existent key
-    let removed = memtable.remove(&"nonexistent".to_string());
+    let removed = memtable.remove(&"nonexistent".to_string()).unwrap();
     assert_eq!(removed, None);
 }
 
@@ -103,7 +103,7 @@ fn test_clear_operation() {
     let mut memtable = create_test_memtable();
 
     // Test clear
-    memtable.clear();
+    let _ = memtable.clear();
     assert_eq!(memtable.len(), 0);
     assert!(memtable.is_empty());
     assert_eq!(memtable.get(&"key1".to_string()), None);

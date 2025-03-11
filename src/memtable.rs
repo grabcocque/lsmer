@@ -5,14 +5,22 @@ use std::fmt::{self, Debug};
 use std::io;
 use std::mem;
 use std::ops::RangeBounds;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::wal::{RecordType, WalError, WalRecord, WriteAheadLog};
 
 /// Error types for Memtable operations
 #[derive(Debug)]
+#[repr(i32)]
 pub enum MemtableError {
     /// Returned when trying to add an entry to a memtable that's at max capacity
     CapacityExceeded = 0,
     /// Returned when a key doesn't exist in the memtable
     KeyNotFound = 1,
+    /// Returned when there's an error with the WAL
+    WalError(WalError),
+    /// Returned when there's an IO error
+    IoError(io::Error),
 }
 
 impl fmt::Display for MemtableError {
@@ -20,11 +28,25 @@ impl fmt::Display for MemtableError {
         match self {
             MemtableError::CapacityExceeded => write!(f, "Memtable capacity exceeded"),
             MemtableError::KeyNotFound => write!(f, "Key not found in memtable"),
+            MemtableError::WalError(e) => write!(f, "WAL error: {:?}", e),
+            MemtableError::IoError(e) => write!(f, "IO error: {}", e),
         }
     }
 }
 
 impl Error for MemtableError {}
+
+impl From<WalError> for MemtableError {
+    fn from(error: WalError) -> Self {
+        MemtableError::WalError(error)
+    }
+}
+
+impl From<io::Error> for MemtableError {
+    fn from(error: io::Error) -> Self {
+        MemtableError::IoError(error)
+    }
+}
 
 /// Trait for calculating the size of an object in bytes
 pub trait ByteSize {
@@ -52,24 +74,63 @@ impl ByteSize for Vec<u8> {
     }
 }
 
+/// Trait for converting a value to bytes for WAL storage
+pub trait ToBytes {
+    /// Convert the value to bytes for storage
+    fn to_bytes(&self) -> Vec<u8>;
+    /// Try to reconstruct the value from bytes
+    fn from_bytes(bytes: Vec<u8>) -> Option<Self>
+    where
+        Self: Sized;
+}
+
+impl ToBytes for String {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.as_bytes().to_vec()
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+        String::from_utf8(bytes).ok()
+    }
+}
+
+impl ToBytes for Vec<u8> {
+    fn to_bytes(&self) -> Vec<u8> {
+        self.clone()
+    }
+
+    fn from_bytes(bytes: Vec<u8>) -> Option<Self> {
+        Some(bytes)
+    }
+}
+
+/// Trait for types that can be flushed to an SSTable
+pub trait SSTableWriter {
+    /// Flushes the contents to an SSTable on disk
+    /// Returns the path to the created SSTable file
+    fn flush_to_sstable_internal(&self, base_path: &str) -> Result<String, io::Error>;
+}
+
 /// An in-memory memtable implementation backed by a BTreeMap to keep keys sorted
 ///
 /// The memtable has a maximum capacity in bytes, and attempting to add entries beyond
-/// that capacity will result in an error.
+/// that capacity will result in an error. All operations are logged to a WAL before
+/// being applied to ensure durability.
 pub struct Memtable<K, V>
 where
-    K: Ord + Clone + Debug + ByteSize,
-    V: Clone + Debug + ByteSize,
+    K: Ord + Clone + Debug + ByteSize + ToBytes,
+    V: Clone + Debug + ByteSize + ToBytes,
 {
     data: BTreeMap<K, V>,
     max_capacity_bytes: usize,
     current_size_bytes: usize,
+    wal: Option<WriteAheadLog>,
 }
 
 impl<K, V> Memtable<K, V>
 where
-    K: Ord + Clone + Debug + ByteSize,
-    V: Clone + Debug + ByteSize,
+    K: Ord + Clone + Debug + ByteSize + ToBytes,
+    V: Clone + Debug + ByteSize + ToBytes,
 {
     /// Creates a new memtable with the specified maximum capacity in bytes
     pub fn new(max_capacity_bytes: usize) -> Self {
@@ -77,7 +138,47 @@ where
             data: BTreeMap::new(),
             max_capacity_bytes,
             current_size_bytes: 0,
+            wal: None,
         }
+    }
+
+    /// Creates a new memtable with the specified maximum capacity in bytes and WAL path
+    pub fn with_wal(&mut self, wal_path: &str) -> Result<(), MemtableError> {
+        let wal = WriteAheadLog::new(wal_path)?;
+        self.wal = Some(wal);
+        Ok(())
+    }
+
+    /// Recovers the memtable state from the WAL
+    pub fn recover_from_wal(&mut self) -> Result<(), MemtableError> {
+        if let Some(wal) = &self.wal {
+            let records = wal.read_all()?;
+
+            // Clear current state
+            self.data.clear();
+            self.current_size_bytes = 0;
+
+            // Replay records
+            for record in records {
+                match record.record_type {
+                    RecordType::Insert => {
+                        if let Some(value) = record.value {
+                            if let (Some(key), Some(value)) =
+                                (K::from_bytes(record.key), V::from_bytes(value))
+                            {
+                                self.insert_internal(key, value)?;
+                            }
+                        }
+                    }
+                    RecordType::Delete => {
+                        if let Some(key) = K::from_bytes(record.key) {
+                            self.remove_internal(&key);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Returns the current number of entries in the memtable
@@ -110,11 +211,8 @@ where
         key.byte_size() + value.byte_size()
     }
 
-    /// Inserts a key-value pair into the memtable
-    ///
-    /// Returns an error if the memtable would exceed its capacity in bytes.
-    /// If the key already exists, the value is updated and the old value is returned.
-    pub fn insert(&mut self, key: K, value: V) -> Result<Option<V>, MemtableError> {
+    /// Internal method to insert without WAL logging
+    fn insert_internal(&mut self, key: K, value: V) -> Result<Option<V>, MemtableError> {
         let new_entry_size = Self::calculate_entry_size(&key, &value);
 
         if let Some(existing_value) = self.data.get(&key) {
@@ -153,15 +251,8 @@ where
         }
     }
 
-    /// Retrieves a value by key
-    pub fn get(&self, key: &K) -> Option<&V> {
-        self.data.get(key)
-    }
-
-    /// Removes an entry by key
-    ///
-    /// Returns the value if the key existed, or None if it didn't
-    pub fn remove(&mut self, key: &K) -> Option<V> {
+    /// Internal method to remove without WAL logging
+    fn remove_internal(&mut self, key: &K) -> Option<V> {
         if let Some(value) = self.data.get(key) {
             let size = Self::calculate_entry_size(key, value);
             let removed = self.data.remove(key);
@@ -174,6 +265,48 @@ where
         } else {
             None
         }
+    }
+
+    /// Inserts a key-value pair into the memtable
+    ///
+    /// Returns an error if the memtable would exceed its capacity in bytes.
+    /// If the key already exists, the value is updated and the old value is returned.
+    pub fn insert(&mut self, key: K, value: V) -> Result<Option<V>, MemtableError> {
+        // Write to WAL first if enabled
+        if let Some(wal) = &mut self.wal {
+            let record = WalRecord {
+                record_type: RecordType::Insert,
+                key: key.to_bytes(),
+                value: Some(value.to_bytes()),
+            };
+            wal.append(&record)?;
+        }
+
+        // Then update memory
+        self.insert_internal(key, value)
+    }
+
+    /// Retrieves a value by key
+    pub fn get(&self, key: &K) -> Option<&V> {
+        self.data.get(key)
+    }
+
+    /// Removes an entry by key
+    ///
+    /// Returns the value if the key existed, or None if it didn't
+    pub fn remove(&mut self, key: &K) -> Result<Option<V>, MemtableError> {
+        // Write to WAL first if enabled
+        if let Some(wal) = &mut self.wal {
+            let record = WalRecord {
+                record_type: RecordType::Delete,
+                key: key.to_bytes(),
+                value: None,
+            };
+            wal.append(&record)?;
+        }
+
+        // Then update memory
+        Ok(self.remove_internal(key))
     }
 
     /// Returns an iterator over the entries in the memtable, in sorted order by key
@@ -196,15 +329,75 @@ where
     }
 
     /// Clears all entries from the memtable
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> Result<(), MemtableError> {
         self.data.clear();
         self.current_size_bytes = 0;
+
+        // Truncate WAL if enabled
+        if let Some(wal) = &mut self.wal {
+            wal.truncate()?;
+        }
+
+        Ok(())
     }
+
+    /// Flushes the memtable contents to an SSTable and clears the WAL
+    pub fn flush_to_sstable(&mut self, base_path: &str) -> Result<String, MemtableError>
+    where
+        Self: SSTableWriter,
+    {
+        if self.is_empty() {
+            return Err(
+                io::Error::new(io::ErrorKind::InvalidInput, "Cannot flush empty memtable").into(),
+            );
+        }
+
+        // Generate the final path
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let final_path = format!("{}/sstable_{}.db", base_path, timestamp);
+
+        // Create a temporary path
+        let temp_path = format!("{}/sstable_temp_{}", base_path, std::process::id());
+
+        // First flush to temporary SSTable file
+        self.flush_to_sstable_internal(&temp_path)?;
+
+        // Atomically rename the temp file to its final name
+        std::fs::rename(&temp_path, &final_path)?;
+
+        // Only after successful rename, truncate the WAL and clear the memtable
+        if let Some(wal) = &mut self.wal {
+            wal.truncate()?;
+        }
+
+        // Clear the memtable after successful flush
+        self.data.clear();
+        self.current_size_bytes = 0;
+
+        Ok(final_path)
+    }
+}
+
+/// A specialized memtable for string keys and binary values
+pub type StringMemtable = Memtable<String, Vec<u8>>;
+
+/// Represents metadata about an SSTable file
+#[derive(Debug, Clone)]
+pub struct SSTableInfo {
+    /// Path to the SSTable file
+    pub path: String,
+    /// Size of the SSTable file in bytes
+    pub size_bytes: u64,
+    /// Number of entries in the SSTable
+    pub entry_count: u64,
 }
 
 /// SSTable file format:
 ///
-/// ```
+/// ```text
 /// +----------------+
 /// | HEADER         |
 /// | - Magic (8B)   |
@@ -223,13 +416,10 @@ where
 /// | - ...          |
 /// +----------------+
 /// ```
-impl Memtable<String, Vec<u8>> {
-    /// Flushes the memtable contents to an SSTable on disk
-    /// Returns the path to the created SSTable file
-    pub fn flush_to_sstable(&mut self, base_path: &str) -> Result<String, io::Error> {
+impl SSTableWriter for Memtable<String, Vec<u8>> {
+    fn flush_to_sstable_internal(&self, path: &str) -> Result<String, io::Error> {
         use std::fs::File;
         use std::io::{Seek, SeekFrom, Write};
-        use std::time::{SystemTime, UNIX_EPOCH};
 
         if self.is_empty() {
             return Err(io::Error::new(
@@ -238,15 +428,8 @@ impl Memtable<String, Vec<u8>> {
             ));
         }
 
-        // Generate a unique filename for this SSTable
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
-        let sstable_path = format!("{}/sstable_{}.db", base_path, timestamp);
-
         // Write memtable contents to the SSTable file
-        let mut file = File::create(&sstable_path)?;
+        let mut file = File::create(path)?;
 
         // Constants
         const MAGIC: u64 = 0x4C534D_5353544142; // "LSM-SSTAB" in hex
@@ -278,6 +461,11 @@ impl Memtable<String, Vec<u8>> {
             let value_offset = file.stream_position()? - data_start_pos;
             key_offsets.push((key.clone(), value_offset));
 
+            // Write key length and key
+            let key_len = key.len() as u32;
+            file.write_all(&key_len.to_le_bytes())?;
+            file.write_all(key.as_bytes())?;
+
             // Write value length and value
             let value_len = value.len() as u32;
             file.write_all(&value_len.to_le_bytes())?;
@@ -303,12 +491,11 @@ impl Memtable<String, Vec<u8>> {
         file.seek(SeekFrom::Start(index_offset_pos))?;
         file.write_all(&index_offset.to_le_bytes())?;
 
-        // Clear the memtable after successful flush
-        self.clear();
-
-        Ok(sstable_path)
+        Ok(path.to_string())
     }
+}
 
+impl Memtable<String, Vec<u8>> {
     /// Identifies groups of SSTables that should be compacted together based on similar size
     ///
     /// # Arguments
@@ -524,6 +711,11 @@ impl Memtable<String, Vec<u8>> {
             let value_offset = file.stream_position()? - data_start_pos;
             key_offsets.push((key.clone(), value_offset));
 
+            // Write key length and key
+            let key_len = key.len() as u32;
+            file.write_all(&key_len.to_le_bytes())?;
+            file.write_all(key.as_bytes())?;
+
             // Write value length and value
             let value_len = value.len() as u32;
             file.write_all(&value_len.to_le_bytes())?;
@@ -564,18 +756,4 @@ impl Memtable<String, Vec<u8>> {
 
         Ok(compacted_path)
     }
-}
-
-/// A specialized memtable for string keys and binary values
-pub type StringMemtable = Memtable<String, Vec<u8>>;
-
-/// Represents metadata about an SSTable file
-#[derive(Debug, Clone)]
-pub struct SSTableInfo {
-    /// Path to the SSTable file
-    pub path: String,
-    /// Size of the SSTable file in bytes
-    pub size_bytes: u64,
-    /// Number of entries in the SSTable
-    pub entry_count: u64,
 }

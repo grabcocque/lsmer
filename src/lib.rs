@@ -1,3 +1,6 @@
 // Re-export types from the memtable module
-mod memtable;
-pub use memtable::{Memtable, MemtableError, SSTableInfo, StringMemtable};
+pub mod memtable;
+pub mod wal;
+
+pub use memtable::{ByteSize, Memtable, MemtableError, SSTableInfo, StringMemtable};
+pub use wal::{RecordType, WalError, WalRecord, WriteAheadLog};
