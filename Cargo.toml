@@ -4,6 +4,96 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tokio = { version = "1.35.1", features = ["full"] }
+crc32fast = "1.3.2"
+tempfile = "3.3"
 
 [dev-dependencies]
 tempfile = "3.3"
+tokio = { version = "1.35.1", features = ["full"] }
+
+# Use the tokio versions of tests
+[[test]]
+name = "memtable_async_test"
+path = "tests/memtable_async_test.rs"
+
+[[test]]
+name = "bloom_filter_test"
+path = "tests/bloom_filter_test.rs"
+
+[[test]]
+name = "bptree_async_test"
+path = "tests/bptree_async_test.rs"
+
+[[test]]
+name = "wal_durability_async_test"
+path = "tests/wal_durability_async_test.rs"
+
+[[test]]
+name = "lsm_core_async_test"
+path = "tests/lsm_core_async_test.rs"
+
+[[test]]
+name = "sstable_bloom_async_test"
+path = "tests/sstable_bloom_async_test.rs"
+
+[[test]]
+name = "lsm_index_async_test"
+path = "tests/lsm_index_async_test.rs"
+
+[[test]]
+name = "bptree_core_test"
+path = "tests/bptree_core_test.rs"
+
+[[test]]
+name = "memtable_error_test"
+path = "tests/memtable_error_test.rs"
+
+[[test]]
+name = "memtable_traits_test"
+path = "tests/memtable_traits_test.rs"
+
+# Add the remaining tests
+[[test]]
+name = "bptree_module_test"
+path = "tests/bptree_module_test.rs"
+
+[[test]]
+name = "memtable_error_async_test"
+path = "tests/memtable_error_async_test.rs"
+
+[[test]]
+name = "memtable_traits_additional_test"
+path = "tests/memtable_traits_additional_test.rs"
+
+[[test]]
+name = "memtable_traits_async_test"
+path = "tests/memtable_traits_async_test.rs"
+
+[[test]]
+name = "sstable_async_test"
+path = "tests/sstable_async_test.rs"
+
+[[test]]
+name = "wal_async_test"
+path = "tests/wal_async_test.rs"
+
+[[test]]
+name = "wal_durability_test"
+path = "tests/wal_durability_test.rs"
+
+[[test]]
+name = "wal_module_async_test"
+path = "tests/wal_module_async_test.rs"
+
+[[test]]
+name = "crash_recovery_test"
+path = "tests/crash_recovery_test.rs"
+
+[[test]]
+name = "direct_checksum_test"
+path = "tests/direct_checksum_test.rs"
+
+[[test]]
+name = "sstable_checksum_test"
+path = "tests/sstable_checksum_test.rs"

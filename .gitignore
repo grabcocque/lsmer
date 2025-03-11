@@ -1,1 +1,13 @@
 /target
+*.db
+coverage/
+*.profraw
+*.profdata
+coverage*
+*.manifest
+*.sstable
+*.sst
+*.wal
+*.log
+*.log.*
+lcov.info
