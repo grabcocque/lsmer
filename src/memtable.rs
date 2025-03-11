@@ -264,18 +264,18 @@ impl Memtable<String, Vec<u8>> {
         file.write_all(&entry_count.to_le_bytes())?;
 
         // Reserve space for index offset (we'll update it later)
-        let index_offset_pos = file.seek(SeekFrom::Current(0))?;
+        let index_offset_pos = file.stream_position()?;
         file.write_all(&index_offset.to_le_bytes())?;
 
         // Track data offsets for each key
         let mut key_offsets = Vec::with_capacity(self.len());
 
         // Write data block
-        let data_start_pos = file.seek(SeekFrom::Current(0))?;
+        let data_start_pos = file.stream_position()?;
 
         for (key, value) in self.iter() {
             // Record the offset of this value
-            let value_offset = file.seek(SeekFrom::Current(0))? - data_start_pos;
+            let value_offset = file.stream_position()? - data_start_pos;
             key_offsets.push((key.clone(), value_offset));
 
             // Write value length and value
@@ -285,7 +285,7 @@ impl Memtable<String, Vec<u8>> {
         }
 
         // Write index
-        index_offset = file.seek(SeekFrom::Current(0))?;
+        index_offset = file.stream_position()?;
 
         // Sort keys for better binary search later
         key_offsets.sort_by(|(a, _), (b, _)| a.cmp(b));
@@ -466,7 +466,7 @@ impl Memtable<String, Vec<u8>> {
                 let value_offset = u64::from_le_bytes(value_offset_bytes);
 
                 // Save current position to return to index
-                let index_position = reader.seek(SeekFrom::Current(0))?;
+                let index_position = reader.stream_position()?;
 
                 // Seek to value position (data_start + value_offset)
                 reader.seek(SeekFrom::Start(HEADER_SIZE as u64 + value_offset))?;
@@ -510,18 +510,18 @@ impl Memtable<String, Vec<u8>> {
         file.write_all(&entry_count.to_le_bytes())?;
 
         // Reserve space for index offset (we'll update it later)
-        let index_offset_pos = file.seek(SeekFrom::Current(0))?;
+        let index_offset_pos = file.stream_position()?;
         file.write_all(&index_offset.to_le_bytes())?;
 
         // Track data offsets for each key
         let mut key_offsets = Vec::with_capacity(merged_data.len());
 
         // Write data block
-        let data_start_pos = file.seek(SeekFrom::Current(0))?;
+        let data_start_pos = file.stream_position()?;
 
         for (key, value) in &merged_data {
             // Record the offset of this value
-            let value_offset = file.seek(SeekFrom::Current(0))? - data_start_pos;
+            let value_offset = file.stream_position()? - data_start_pos;
             key_offsets.push((key.clone(), value_offset));
 
             // Write value length and value
@@ -531,7 +531,7 @@ impl Memtable<String, Vec<u8>> {
         }
 
         // Write index
-        index_offset = file.seek(SeekFrom::Current(0))?;
+        index_offset = file.stream_position()?;
 
         // Sort keys for better binary search later
         key_offsets.sort_by(|(a, _), (b, _)| a.cmp(b));
