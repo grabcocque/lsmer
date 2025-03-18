@@ -37,6 +37,7 @@ impl TestDir {
     }
 
     /// Creates subdirectories relative to the test directory
+    #[allow(dead_code)]
     pub fn create_subdir(&self, subdir: &str) -> PathBuf {
         let subdir_path = self.path.join(subdir);
         fs::create_dir_all(&subdir_path).unwrap();

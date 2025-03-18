@@ -1,5 +1,2 @@
 [test]
 threads = "num-cpus"
-
-[env]
-RUST_TEST_SHUFFLE = "1"
