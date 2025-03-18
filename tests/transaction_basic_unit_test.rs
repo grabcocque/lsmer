@@ -4,8 +4,8 @@ mod tests {
     use std::fs;
     use tempfile::tempdir;
 
-    #[test]
-    fn test_basic_transaction() {
+    #[tokio::test]
+    async fn test_basic_transaction() {
         // Create a temporary directory
         let temp_dir = tempdir().unwrap();
         let wal_path = temp_dir
@@ -60,8 +60,8 @@ mod tests {
             .unwrap();
     }
 
-    #[test]
-    fn test_transaction_batch() {
+    #[tokio::test]
+    async fn test_transaction_batch() {
         // Create a temporary directory
         let temp_dir = tempdir().unwrap();
         let wal_path = temp_dir
@@ -106,8 +106,8 @@ mod tests {
         // This would require recovery testing, but we're just verifying it doesn't crash
     }
 
-    #[test]
-    fn test_transaction_abort() {
+    #[tokio::test]
+    async fn test_transaction_abort() {
         // Create a temporary directory
         let temp_dir = tempdir().unwrap();
         let wal_path = temp_dir

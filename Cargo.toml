@@ -13,6 +13,13 @@ siphasher = "0.3"
 tempfile = "3.3"
 tokio = { version = "1.35.1", features = ["full"] }
 
+# Add profile configurations for tests
+[profile.test]
+opt-level = 2           # Use moderate optimization for faster tests
+debug = true            # Include debug info for better diagnostics
+codegen-units = 16      # More codegen units for parallel compilation
+debug-assertions = true
+
 # Use the tokio versions of tests
 [[test]]
 name = "memtable_async_test"
@@ -172,9 +179,9 @@ name = "wal_durability_comprehensive_test"
 path = "tests/wal_durability_comprehensive_test.rs"
 
 [[test]]
-name = "wal_basic_coverage_integration_test"
-path = "tests/wal_basic_coverage_integration_test.rs"
-
-[[test]]
 name = "wal_basic_unit_test"
 path = "tests/wal_basic_unit_test.rs"
+
+[[test]]
+name = "parallel_test_example"
+path = "tests/parallel_test_example.rs"
