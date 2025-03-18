@@ -11,3 +11,9 @@ coverage*
 *.log
 *.log.*
 lcov.info
+*.profraw
+*.profdata
+*.manifest
+*.sstable
+*.sst
+*.wal
