@@ -126,6 +126,7 @@ name = "lsmer"
 version = "0.1.0"
 dependencies = [
  "crc32fast",
+ "siphasher",
  "tempfile",
  "tokio",
 ]
@@ -260,6 +261,12 @@ checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "siphasher"
+version = "0.3.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "smallvec"

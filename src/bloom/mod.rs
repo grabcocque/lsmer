@@ -1,4 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
+use siphasher::sip::SipHasher;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
@@ -93,19 +93,17 @@ impl<T: Hash> BloomFilter<T> {
         true // Possibly in the set
     }
 
-    /// Calculate two independent hash values using SipHasher
+    /// Compute two different hash values for the item, to be used with the double hashing technique
     fn get_hash_values(&self, item: &T) -> (u64, u64) {
-        // Use different seeds for the two hashers
-        let mut hasher1 = DefaultHasher::new();
-        let mut hasher2 = DefaultHasher::new();
+        // Use SipHasher with different keys for the two hash functions
+        // SipHasher takes two u64 values as keys (k0 and k1)
+        let mut hasher1 = SipHasher::new_with_keys(0x0123456789ABCDEF, 0xFEDCBA9876543210);
+        let mut hasher2 = SipHasher::new_with_keys(0xABCDEF0123456789, 0x0123456789ABCDEF);
 
-        // Hash with a modifier for the first hash
-        hasher1.write_u8(1);
+        // Hash the item with each hasher
         item.hash(&mut hasher1);
         let h1 = hasher1.finish();
 
-        // Hash with a different modifier for the second hash
-        hasher2.write_u8(2);
         item.hash(&mut hasher2);
         let h2 = hasher2.finish();
 
