@@ -51,24 +51,33 @@ impl From<crate::bptree::IndexError> for LsmIndexError {
 /// A type alias for the result of LSM index operations
 pub type Result<T> = std::result::Result<T, LsmIndexError>;
 
-/// SSTable reader stub for use in LSM index
-pub struct SSTReader {
+/// SSTable reader for use in LSM index - wraps the actual SSTableReader from sstable module
+pub struct SSTableReader {
     /// Path to the SSTable file
     file_path: String,
+    /// Actual SSTable reader
+    reader: Option<crate::sstable::SSTableReader>,
     /// Number of entries in the SSTable
     entry_count: u64,
     /// Whether the SSTable has a Bloom filter
     has_bloom_filter: bool,
 }
 
-impl SSTReader {
+impl SSTableReader {
     /// Open an SSTable reader for the given path
     pub fn open(path: &str) -> io::Result<Self> {
-        // For simplicity, just create a dummy implementation
+        // Open the actual reader from the sstable module
+        let reader = crate::sstable::SSTableReader::open(path)?;
+        
+        // Extract information from the reader
+        let entry_count = reader.entry_count();
+        let has_bloom_filter = reader.has_bloom_filter();
+        
         Ok(Self {
             file_path: path.to_string(),
-            entry_count: 10,
-            has_bloom_filter: false,
+            reader: Some(reader),
+            entry_count,
+            has_bloom_filter,
         })
     }
 
@@ -78,15 +87,25 @@ impl SSTReader {
     }
 
     /// Check if a key might exist in the SSTable
-    pub fn may_contain(&self, _key: &str) -> bool {
-        // In a real implementation, this would check the Bloom filter
-        true
+    pub fn may_contain(&self, key: &str) -> bool {
+        if let Some(reader) = &self.reader {
+            // Delegate to the actual reader
+            reader.may_contain(key)
+        } else {
+            // Fallback to true if reader is None (unlikely but safe)
+            true
+        }
     }
 
     /// Get the value for a key, if it exists
-    pub fn get(&mut self, _key: &str) -> io::Result<Option<Vec<u8>>> {
-        // In a real implementation, this would read from the actual SSTable file
-        Ok(None)
+    pub fn get(&mut self, key: &str) -> io::Result<Option<Vec<u8>>> {
+        if let Some(reader) = &mut self.reader {
+            // Delegate to the actual reader
+            reader.get(key)
+        } else {
+            // Fallback to None if reader is None (unlikely but safe)
+            Ok(None)
+        }
     }
 
     /// Get the number of entries in the SSTable
@@ -109,7 +128,7 @@ pub struct LsmIndex {
     /// Durability manager for crash recovery
     durability_manager: Arc<Mutex<DurabilityManager>>,
     /// Cache of SSTable readers for quick access
-    sstable_readers: Arc<RwLock<HashMap<String, SSTReader>>>,
+    sstable_readers: Arc<RwLock<HashMap<String, SSTableReader>>>,
     /// Base directory for SSTables
     base_path: String,
     /// Bloom filter false positive rate
@@ -413,7 +432,7 @@ impl LsmIndex {
 
         // Add the SSTable reader to the cache
         let mut readers = self.sstable_readers.write().unwrap();
-        readers.insert(sstable_path.clone(), SSTReader::open(&sstable_path)?);
+        readers.insert(sstable_path.clone(), SSTableReader::open(&sstable_path)?);
 
         Ok(())
     }

@@ -1,8 +1,6 @@
-use lsmer::sstable::{self, SSTableReader, SSTableWriter};
+use lsmer::sstable::{SSTableReader, SSTableWriter};
 use std::collections::BTreeMap;
 use std::fs;
-use std::io;
-use std::path::Path;
 use tempfile::tempdir;
 use tokio::time::{Duration, timeout};
 
@@ -57,8 +55,8 @@ async fn test_sstable_basic_operations() {
         }
 
         assert_eq!(range_result.len(), 2); // should contain key1 and key2
-        assert_eq!(range_result.get(&"key1".to_string()), Some(&vec![1, 2, 3]));
-        assert_eq!(range_result.get(&"key2".to_string()), Some(&vec![4, 5, 6]));
+        assert_eq!(range_result.get("key1"), Some(&vec![1, 2, 3]));
+        assert_eq!(range_result.get("key2"), Some(&vec![4, 5, 6]));
 
         // Implement all entries functionality by scanning through each entry
         // (Cannot directly use all() as it's not implemented in SSTableReader)
@@ -233,7 +231,7 @@ async fn test_sstable_metadata() {
 
         // Test creating an empty SSTable
         let empty_path = format!("{}/empty_sstable", temp_path);
-        let mut empty_writer = SSTableWriter::new(&empty_path, 10, false, 0.01).unwrap();
+        let empty_writer = SSTableWriter::new(&empty_path, 10, false, 0.01).unwrap();
         empty_writer.finalize().unwrap();
 
         let empty_reader = SSTableReader::open(&empty_path).unwrap();

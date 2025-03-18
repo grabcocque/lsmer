@@ -1,4 +1,3 @@
-use lsmer::memtable::Memtable;
 use lsmer::sstable::SSTableWriter;
 use lsmer::wal::durability::{DurabilityError, DurabilityManager, KeyValuePair, Operation};
 use std::fs;
@@ -219,7 +218,7 @@ async fn test_verify_sstable_integrity() {
         fs::create_dir_all(&sstable_path).unwrap();
 
         // Create durability manager
-        let mut durability_manager = DurabilityManager::new(&wal_path, &sstable_path).unwrap();
+        let durability_manager = DurabilityManager::new(&wal_path, &sstable_path).unwrap();
 
         // Create some key-value pairs
         let mut pairs = Vec::new();

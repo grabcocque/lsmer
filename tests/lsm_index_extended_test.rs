@@ -234,7 +234,7 @@ async fn test_lsm_index_sstable_readers() {
                 .unwrap();
             // We may not get all 4 keys due to capacity issues, but we should get some
             assert!(
-                range_result.len() > 0,
+                !range_result.is_empty(),
                 "Expected at least one key in range query"
             );
         }
