@@ -7,6 +7,13 @@ use std::io::{self, BufReader, Read, Seek, SeekFrom};
 use std::ops::RangeBounds;
 use std::sync::{Arc, Mutex, RwLock};
 
+// Export the skip_list module
+pub mod skip_list;
+pub mod skip_list_index;
+
+// Re-export the SkipListIndex
+pub use skip_list_index::SkipListIndex;
+
 /// Error type for LSM index operations
 #[derive(Debug)]
 pub enum LsmIndexError {

@@ -9,7 +9,8 @@ pub mod wal;
 
 pub use bloom::BloomFilter;
 pub use bptree::{BPlusTree, IndexKeyValue, StorageReference, TreeOps};
-pub use lsm_index::{LsmIndex, LsmIndexError};
+pub use lsm_index::skip_list::ConcurrentSkipList;
+pub use lsm_index::{LsmIndex, LsmIndexError, SkipListIndex};
 pub use memtable::{AsyncStringMemtable, ByteSize, Memtable, MemtableError, StringMemtable};
 pub use sstable::SSTableInfo;
 pub use wal::durability::{DurabilityError, DurabilityManager, KeyValuePair, Operation};
