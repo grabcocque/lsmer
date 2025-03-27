@@ -137,29 +137,58 @@ async fn test_key_length_validation() {
             writer.finalize().unwrap();
         }
 
-        // Now modify the key length at the offset where first key would be
-        // The offset is header size + some additional bytes - this test might need adjustment
-        // based on actual file layout
+        // Show file size to help with debugging
+        let file_size = fs::metadata(&path).unwrap().len();
+        println!("File size: {} bytes", file_size);
+
+        // Now modify the key length at the exact offset where first key would be
+        // SSTable header size is defined in src/sstable/mod.rs as HEADER_SIZE
         let mut data = fs::read(&path).unwrap();
-        // Just change one byte past the header - this will likely corrupt key length
-        if data.len() >= 50 {
-            data[45] = 0xFF; // Set an impossibly large key length
+
+        // The header is followed immediately by entries
+        // Each entry has: key_len (4 bytes) + key + value_len (4 bytes) + value + checksum (4 bytes)
+        // So we need to modify the first 4 bytes after the header
+        let header_size = 49; // Based on constants in src/sstable/mod.rs
+
+        if data.len() >= header_size + 4 {
+            // Corrupt the key length field - set it to a impossibly large value
+            println!(
+                "Setting key length bytes to FF FF FF FF at offset {}",
+                header_size
+            );
+            data[header_size] = 0xFF;
+            data[header_size + 1] = 0xFF;
+            data[header_size + 2] = 0xFF;
+            data[header_size + 3] = 0xFF;
             fs::write(&path, &data).unwrap();
+        } else {
+            println!("File too small to modify key length: {} bytes", data.len());
         }
 
         // Try to read the file - may fail with different errors, but shouldn't crash
         let mut reader = match SSTableReader::open(&path) {
             Ok(r) => r,
-            Err(_) => return, // If it fails to open, that's fine too
+            Err(e) => {
+                println!("Failed to open SSTable: {}", e);
+                return; // If it fails to open, that's fine too
+            }
         };
 
         // If we got here, the reader opened successfully, but get() should fail safely
         let result = reader.get("test");
+        println!("get() result: {:?}", result);
+
         // Should either return None or an error, but not crash
         match result {
-            Ok(None) => (), // Key not found is a valid result
-            Err(_) => (),   // Error is also a valid result
-            Ok(Some(_)) => panic!("Unexpected successful read with corrupted key length!"),
+            Ok(None) => {
+                println!("Key not found - test passed");
+            }
+            Err(e) => {
+                println!("Error detected (expected): {}", e);
+            }
+            Ok(Some(_)) => {
+                panic!("Unexpected successful read with corrupted key length!");
+            }
         }
     };
 

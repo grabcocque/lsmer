@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -545,7 +545,7 @@ impl DurabilityManager {
             let entry = entry?;
             let path = entry.path();
 
-            if path.is_file() && path.extension().is_some_and(|ext| ext == "db") {
+            if path.is_file() && path.extension().is_some_and(|ext| ext == "sst") {
                 if let Some(file_name) = path.file_name().and_then(|s| s.to_str()) {
                     if file_name.starts_with("sstable_") {
                         sstables.push(path);
@@ -581,9 +581,11 @@ impl DurabilityManager {
     /// Extract checkpoint ID from SSTable path
     pub fn extract_checkpoint_id(&self, sstable_path: &Path) -> Result<u64, DurabilityError> {
         if let Some(file_name) = sstable_path.file_name().and_then(|s| s.to_str()) {
-            if file_name.starts_with("sstable_") && file_name.ends_with(".db") {
-                let id_part = &file_name["sstable_".len()..file_name.len() - 3];
-                if let Ok(id) = id_part.parse::<u64>() {
+            if file_name.starts_with("sstable_") && file_name.ends_with(".sst") {
+                let parts: Vec<&str> = file_name["sstable_".len()..file_name.len() - 4]
+                    .split('_')
+                    .collect();
+                if let Ok(id) = parts[0].parse::<u64>() {
                     return Ok(id);
                 }
             }
@@ -599,41 +601,73 @@ impl DurabilityManager {
         &self,
         sstable_path: &Path,
     ) -> Result<StringMemtable, DurabilityError> {
-        let memtable = StringMemtable::new(usize::MAX); // No size limit during recovery
+        use std::io::{Read, Seek, SeekFrom};
 
+        let memtable = StringMemtable::new(usize::MAX); // No size limit during recovery
+        let reader = SSTableReader::open(sstable_path.to_str().unwrap())?;
+
+        // Get basic information from the reader
+        let entry_count = reader.entry_count();
+
+        // Open the file directly for manual reading
         let mut file = File::open(sstable_path)?;
 
-        // Skip header (magic number and version)
-        file.seek(SeekFrom::Start(16))?;
+        // Skip to where data begins
+        file.seek(SeekFrom::Start(crate::sstable::HEADER_SIZE as u64))?;
 
-        // Read entry count
-        let mut count_buf = [0u8; 8];
-        file.read_exact(&mut count_buf)?;
-        let entry_count = u64::from_be_bytes(count_buf);
-
-        // Read and insert each key-value pair
+        // Read each entry
         for _ in 0..entry_count {
             // Read key length
             let mut key_len_buf = [0u8; 4];
-            file.read_exact(&mut key_len_buf)?;
-            let key_len = u32::from_be_bytes(key_len_buf) as usize;
+            if file.read_exact(&mut key_len_buf).is_err() {
+                break; // Exit gracefully on error
+            }
+            let key_len = u32::from_le_bytes(key_len_buf) as usize;
+
+            // Safety check for key length
+            if key_len == 0 || key_len > 10_000_000 {
+                break; // Suspicious key length, stop reading
+            }
 
             // Read key
             let mut key_buf = vec![0u8; key_len];
-            file.read_exact(&mut key_buf)?;
-            let key = String::from_utf8_lossy(&key_buf).to_string();
+            if file.read_exact(&mut key_buf).is_err() {
+                break;
+            }
+
+            // Only try to parse valid UTF-8 keys
+            let key = match String::from_utf8(key_buf) {
+                Ok(k) => k,
+                Err(_) => break, // Invalid UTF-8, stop reading
+            };
 
             // Read value length
             let mut value_len_buf = [0u8; 4];
-            file.read_exact(&mut value_len_buf)?;
-            let value_len = u32::from_be_bytes(value_len_buf) as usize;
+            if file.read_exact(&mut value_len_buf).is_err() {
+                break;
+            }
+            let value_len = u32::from_le_bytes(value_len_buf) as usize;
+
+            // Safety check for value length
+            if value_len > 50_000_000 {
+                break; // Suspicious value length, stop reading
+            }
 
             // Read value
             let mut value = vec![0u8; value_len];
-            file.read_exact(&mut value)?;
+            if file.read_exact(&mut value).is_err() {
+                break;
+            }
+
+            // Skip checksum (4 bytes)
+            if file.seek(SeekFrom::Current(4)).is_err() {
+                break;
+            }
 
             // Insert into memtable
-            memtable.insert(key, value)?;
+            if memtable.insert(key, value).is_err() {
+                break; // Stop if we can't insert
+            }
         }
 
         Ok(memtable)

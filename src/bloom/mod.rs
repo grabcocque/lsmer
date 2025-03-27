@@ -2,6 +2,11 @@ use siphasher::sip::SipHasher;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
+// Create the partitioned module
+mod partitioned;
+// Re-export the PartitionedBloomFilter
+pub use partitioned::PartitionedBloomFilter;
+
 /// A Bloom filter implementation using double hashing technique
 /// to reduce the number of required hash functions.
 ///
