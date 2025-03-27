@@ -1,0 +1,26 @@
+{
+    // Enable formatting on save
+    "editor.formatOnSave": true,
+    // Rust-specific settings
+    "[rust]": {
+        "editor.defaultFormatter": "rust-lang.rust-analyzer",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+        }
+    },
+    // Rust-analyzer settings
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.checkOnSave.allTargets": true,
+    "rust-analyzer.cargo.allFeatures": true,
+    // File auto-save (optional)
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    // Configure rustfmt
+    "rust-analyzer.rustfmt.extraArgs": [
+        "+nightly"
+    ],
+    // Use system rustfmt if available
+    "rust-analyzer.rustfmt.rangeFormatting.enable": true
+}

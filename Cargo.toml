@@ -1,0 +1,187 @@
+[package]
+name = "lsmer"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1.35.1", features = ["full"] }
+crc32fast = "1.3.2"
+tempfile = "3.3"
+siphasher = "0.3"
+
+[dev-dependencies]
+tempfile = "3.3"
+tokio = { version = "1.35.1", features = ["full"] }
+
+# Add profile configurations for tests
+[profile.test]
+opt-level = 2           # Use moderate optimization for faster tests
+debug = true            # Include debug info for better diagnostics
+codegen-units = 16      # More codegen units for parallel compilation
+debug-assertions = true
+
+# Use the tokio versions of tests
+[[test]]
+name = "memtable_async_test"
+path = "tests/memtable_async_integration_test.rs"
+
+[[test]]
+name = "bloom_filter_test"
+path = "tests/bloom_filter_unit_test.rs"
+
+[[test]]
+name = "bptree_async_test"
+path = "tests/bptree_async_integration_test.rs"
+
+[[test]]
+name = "wal_durability_async_test"
+path = "tests/wal_durability_async_integration_test.rs"
+
+[[test]]
+name = "lsm_core_async_test"
+path = "tests/lsm_core_async_integration_test.rs"
+
+[[test]]
+name = "sstable_bloom_async_test"
+path = "tests/sstable_bloom_async_integration_test.rs"
+
+[[test]]
+name = "lsm_index_async_test"
+path = "tests/lsm_index_async_integration_test.rs"
+
+[[test]]
+name = "bptree_core_test"
+path = "tests/bptree_core_unit_test.rs"
+
+[[test]]
+name = "memtable_error_test"
+path = "tests/memtable_error_unit_test.rs"
+
+[[test]]
+name = "memtable_traits_test"
+path = "tests/memtable_traits_basic_unit_test.rs"
+
+# Add the remaining tests
+[[test]]
+name = "bptree_module_test"
+path = "tests/bptree_module_unit_test.rs"
+
+[[test]]
+name = "memtable_error_async_test"
+path = "tests/memtable_error_async_unit_test.rs"
+
+[[test]]
+name = "memtable_traits_additional_test"
+path = "tests/memtable_traits_additional_unit_test.rs"
+
+[[test]]
+name = "memtable_traits_async_test"
+path = "tests/memtable_traits_async_unit_test.rs"
+
+[[test]]
+name = "sstable_async_test"
+path = "tests/sstable_async_integration_test.rs"
+
+[[test]]
+name = "wal_async_test"
+path = "tests/wal_async_integration_test.rs"
+
+[[test]]
+name = "wal_durability_test"
+path = "tests/wal_durability_basic_integration_test.rs"
+
+[[test]]
+name = "wal_module_async_test"
+path = "tests/wal_module_async_integration_test.rs"
+
+[[test]]
+name = "crash_recovery_test"
+path = "tests/recovery_basic_integration_test.rs"
+
+[[test]]
+name = "direct_checksum_test"
+path = "tests/checksum_direct_unit_test.rs"
+
+[[test]]
+name = "sstable_checksum_test"
+path = "tests/sstable_checksum_unit_test.rs"
+
+[[test]]
+name = "bptree_node_unit_test"
+path = "tests/bptree_node_unit_test.rs"
+
+[[test]]
+name = "bptree_tree_unit_test"
+path = "tests/bptree_tree_unit_test.rs"
+
+[[test]]
+name = "checksum_integrity_unit_test"
+path = "tests/checksum_integrity_unit_test.rs"
+
+[[test]]
+name = "durability_error_unit_test"
+path = "tests/durability_error_unit_test.rs"
+
+[[test]]
+name = "lsm_index_comprehensive_test"
+path = "tests/lsm_index_comprehensive_test.rs"
+
+[[test]]
+name = "lsm_index_extended_integration_test"
+path = "tests/lsm_index_extended_integration_test.rs"
+
+[[test]]
+name = "lsm_index_additional_unit_test"
+path = "tests/lsm_index_additional_unit_test.rs"
+
+[[test]]
+name = "memtable_capacity_async_integration_test"
+path = "tests/memtable_capacity_async_integration_test.rs"
+
+[[test]]
+name = "memtable_traits_extended_unit_test"
+path = "tests/memtable_traits_extended_unit_test.rs"
+
+[[test]]
+name = "memtable_string_integration_test"
+path = "tests/memtable_string_integration_test.rs"
+
+[[test]]
+name = "sstable_comprehensive_test"
+path = "tests/sstable_comprehensive_test.rs"
+
+[[test]]
+name = "sstable_direct_write_unit_test"
+path = "tests/sstable_direct_write_unit_test.rs"
+
+[[test]]
+name = "sstable_basic_unit_test"
+path = "tests/sstable_basic_unit_test.rs"
+
+[[test]]
+name = "sstable_writer_unit_test"
+path = "tests/sstable_writer_unit_test.rs"
+
+[[test]]
+name = "transaction_basic_unit_test"
+path = "tests/transaction_basic_unit_test.rs"
+
+[[test]]
+name = "wal_durability_complete_integration_test"
+path = "tests/wal_durability_complete_integration_test.rs"
+
+[[test]]
+name = "wal_durability_coverage_integration_test"
+path = "tests/wal_durability_coverage_integration_test.rs"
+
+[[test]]
+name = "wal_durability_comprehensive_test"
+path = "tests/wal_durability_comprehensive_test.rs"
+
+[[test]]
+name = "wal_basic_unit_test"
+path = "tests/wal_basic_unit_test.rs"
+
+[[test]]
+name = "parallel_test_example"
+path = "tests/parallel_test_example.rs"
