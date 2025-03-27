@@ -12,6 +12,8 @@ Perfect for high-throughput key-value storage with ACID guarantees.
 - **Async Support**: Built with Tokio for high concurrency
 - **Configurable Durability**: Fine-grained control over write guarantees
 - **Memory Efficient**: Optimized for both memory and disk usage
+- **Lock-Free Architecture**: Concurrent access with crossbeam's SkipMap
+- **Generational Reference Counting**: Safe concurrent access to shared data with ABA problem prevention
 
 ## 🏗️ Architecture
 
@@ -23,6 +25,8 @@ LSmer implements a complete LSM tree with the following components:
 - **Bloom Filters**: Probabilistic membership testing
 - **Write-Ahead Log**: Crash recovery and durability
 - **Compaction**: Background merging of SSTables
+- **Lock-Free Index**: Concurrent access through crossbeam's SkipMap
+- **Generational References**: Memory-safe shared references with generation tracking to prevent the ABA problem
 
 ## 📚 Modules
 

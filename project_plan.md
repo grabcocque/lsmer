@@ -213,39 +213,3 @@ To begin implementing this plan:
 3. Implement Phase 1 tasks with continuous benchmarking
 4. Add tests for each new feature
 5. Document API changes and performance characteristics
-
-```rust
-use crossbeam_epoch::{self as epoch, Atomic, Owned, Shared};
-use crossbeam_utils::CachePadded;
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-struct SkipListNode<K, V> {
-    key: K,
-    value: V,
-    next: Vec<Atomic<SkipListNode<K, V>>>,
-}
-
-pub struct ConcurrentSkipList<K, V> {
-    head: Atomic<SkipListNode<K, V>>,
-    max_height: usize,
-    length: AtomicUsize,
-}
-
-pub fn get(&self, key: &str) -> Result<Option<Vec<u8>>> {
-    // Try memtable first
-    match self.memtable.get(&key.to_string()) {
-        Ok(Some(value)) => Ok(Some(value)),
-        Ok(None) => {
-            // Now use lock-free find in the index
-            let guard = &epoch::pin();
-            match self.index.find(key, guard) {
-                Some(index_kv) => {
-                    // Process as before...
-                }
-                None => Ok(None)
-            }
-        }
-        Err(e) => Err(LsmIndexError::MemtableError(e)),
-    }
-}
-```

@@ -12,8 +12,15 @@ use std::sync::{Arc, Mutex};
 pub mod skip_list;
 pub mod skip_list_index;
 
+// New modules for generational reference counting
+pub mod gen_index_entry;
+pub mod gen_ref;
+
 // Re-export the SkipListIndex
 pub use skip_list_index::SkipListIndex;
+// Re-export the generational reference counting types for external use
+pub use gen_index_entry::GenIndexEntry;
+pub use gen_ref::{make_gen_ref, GenRefHandle};
 
 /// Error type for LSM index operations
 #[derive(Debug)]
@@ -127,6 +134,12 @@ impl SSTableReader {
     }
 }
 
+/// Convert from legacy IndexEntry to generational GenIndexEntry
+#[allow(dead_code)]
+fn migrate_to_gen_index_entry(entry: IndexEntry) -> GenIndexEntry {
+    GenIndexEntry::new(entry.value, entry.storage_ref)
+}
+
 /// Entry in the LsmIndex representing a key-value pair
 #[derive(Clone)]
 struct IndexEntry {
@@ -136,12 +149,12 @@ struct IndexEntry {
     storage_ref: Option<StorageReference>,
 }
 
-/// Lock-free LSM tree using crossbeam's SkipMap
+/// Lock-free LSM tree using crossbeam's SkipMap with generational reference counting
 pub struct LsmIndex {
     /// In-memory table for recent writes
     memtable: StringMemtable,
-    /// Lock-free skip map index for efficient lookups
-    index: Arc<SkipMap<String, IndexEntry>>,
+    /// Lock-free skip map index for efficient lookups using generational reference counting
+    index: Arc<SkipMap<String, GenIndexEntry>>,
     /// Durability manager for crash recovery
     durability_manager: Arc<Mutex<DurabilityManager>>,
     /// Cache of SSTable readers for quick access
@@ -205,13 +218,8 @@ impl LsmIndex {
         match self.memtable.insert(key.clone(), value.clone()) {
             Ok(_) => {
                 // Update the index with the in-memory value
-                self.index.insert(
-                    key,
-                    IndexEntry {
-                        value: Some(value),
-                        storage_ref: None,
-                    },
-                );
+                self.index
+                    .insert(key, GenIndexEntry::new(Some(value), None));
                 Ok(())
             }
             Err(e) => Err(LsmIndexError::MemtableError(e)),
@@ -249,12 +257,12 @@ impl LsmIndex {
                 if let Some(entry) = self.index.get(key) {
                     let index_entry = entry.value();
 
-                    if let Some(value) = &index_entry.value {
+                    if let Some(value) = index_entry.value() {
                         // Return the in-memory value
-                        return Ok(Some(value.clone()));
+                        return Ok(Some(value));
                     }
 
-                    if let Some(storage_ref) = &index_entry.storage_ref {
+                    if let Some(storage_ref) = index_entry.storage_ref() {
                         // If we have a tombstone, return None
                         if storage_ref.is_tombstone {
                             return Ok(None);
@@ -300,7 +308,7 @@ impl LsmIndex {
 
         // Add index entries
         for (key, index_entry) in index_entries {
-            if let Some(storage_ref) = &index_entry.storage_ref {
+            if let Some(storage_ref) = index_entry.storage_ref() {
                 // Skip tombstones
                 if storage_ref.is_tombstone {
                     continue;
@@ -320,7 +328,7 @@ impl LsmIndex {
                     keys_seen.insert(key.clone());
                     result.push((key, value));
                 }
-            } else if let Some(value) = index_entry.value {
+            } else if let Some(value) = index_entry.value() {
                 keys_seen.insert(key.clone());
                 result.push((key, value));
             }
@@ -432,7 +440,7 @@ impl LsmIndex {
                 let index_entry = entry.value();
 
                 // Only add storage reference if it doesn't already have one
-                if index_entry.storage_ref.is_none() && index_entry.value.is_some() {
+                if index_entry.storage_ref().is_none() && index_entry.value().is_some() {
                     // Create a storage reference for this entry
                     let storage_ref = StorageReference {
                         file_path: sstable_path.clone(),
@@ -440,11 +448,8 @@ impl LsmIndex {
                         is_tombstone: false,
                     };
 
-                    // Update the index entry with a storage reference
-                    let new_entry = IndexEntry {
-                        value: index_entry.value.clone(),
-                        storage_ref: Some(storage_ref),
-                    };
+                    // Create a new entry with the updated storage reference
+                    let new_entry = GenIndexEntry::new(index_entry.value(), Some(storage_ref));
 
                     // In a lock-free structure, we insert the updated entry
                     self.index.insert(key, new_entry);
@@ -605,13 +610,8 @@ impl LsmIndex {
             };
 
             // Update index - lock-free update with SkipMap
-            self.index.insert(
-                key,
-                IndexEntry {
-                    value: Some(value_buf),
-                    storage_ref: Some(storage_ref),
-                },
-            );
+            self.index
+                .insert(key, GenIndexEntry::new(Some(value_buf), Some(storage_ref)));
         }
 
         println!(
