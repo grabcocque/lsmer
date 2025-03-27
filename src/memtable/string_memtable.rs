@@ -7,7 +7,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::error::MemtableError;
 use super::traits::{ByteSize, Memtable, SSTableWriter};
-use crate::sstable::{MAGIC, SSTableCompaction, SSTableInfo, VERSION};
+use crate::sstable::{SSTableCompaction, SSTableInfo, MAGIC, VERSION};
 
 /// A string-based memtable implementation
 #[derive(Debug)]

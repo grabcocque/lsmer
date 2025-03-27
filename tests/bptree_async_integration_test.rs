@@ -195,71 +195,87 @@ async fn test_bptree_large_dataset() {
 #[tokio::test]
 async fn test_bptree_node_operations() {
     // Test direct BPTreeNode operations
-    
+
     // Create a leaf node with max 3 entries
     let mut leaf_node: BPTreeNode<String, Vec<u8>> = BPTreeNode::new(NodeType::Leaf, 3);
     assert_eq!(leaf_node.node_type, NodeType::Leaf);
     assert_eq!(leaf_node.entries.len(), 0);
     assert_eq!(leaf_node.max_entries, 3);
-    
+
     // Insert keys
-    leaf_node.insert("key1".to_string(), Some(vec![1]), None).unwrap();
+    leaf_node
+        .insert("key1".to_string(), Some(vec![1]), None)
+        .unwrap();
     assert_eq!(leaf_node.entries.len(), 1);
-    
-    leaf_node.insert("key3".to_string(), Some(vec![3]), None).unwrap();
+
+    leaf_node
+        .insert("key3".to_string(), Some(vec![3]), None)
+        .unwrap();
     assert_eq!(leaf_node.entries.len(), 2);
-    
-    leaf_node.insert("key2".to_string(), Some(vec![2]), None).unwrap();
+
+    leaf_node
+        .insert("key2".to_string(), Some(vec![2]), None)
+        .unwrap();
     assert_eq!(leaf_node.entries.len(), 3);
-    
+
     // Verify the order of keys after insertion
     assert_eq!(leaf_node.entries[0].kv.key, "key1");
     assert_eq!(leaf_node.entries[1].kv.key, "key2");
     assert_eq!(leaf_node.entries[2].kv.key, "key3");
-    
+
     // Test finding positions
     let pos1 = leaf_node.find_position(&"key1".to_string());
     assert_eq!(pos1, 0);
-    
+
     let pos3 = leaf_node.find_position(&"key3".to_string());
     assert_eq!(pos3, 2);
-    
+
     let non_existent = leaf_node.find_position(&"key5".to_string());
     assert_eq!(non_existent, 3); // Should be at the end
-    
+
     // Test splitting when max entries is reached
-    let split_result = leaf_node.insert("key4".to_string(), Some(vec![4]), None).unwrap();
-    
+    let split_result = leaf_node
+        .insert("key4".to_string(), Some(vec![4]), None)
+        .unwrap();
+
     // Split should have occurred and returned a result
     assert!(split_result.is_some());
     let (median_key, right_node) = split_result.unwrap();
-    
+
     // Median key should be key3 for a 3-entry node split
     assert_eq!(median_key, "key3");
-    
+
     // Original node should have 2 entries, right node should have 2 entries
     assert_eq!(leaf_node.entries.len(), 2);
     assert_eq!(right_node.entries.len(), 2);
-    
+
     // Verify right node has key3 and key4
     assert_eq!(right_node.entries[0].kv.key, "key3");
     assert_eq!(right_node.entries[1].kv.key, "key4");
-    
+
     // Test range query on a node
     let range_entries = leaf_node.range("key1".to_string().."key3".to_string());
     assert_eq!(range_entries.len(), 2); // Should include key1 and key2
-    
+
     // Create internal node and test operations
     let mut internal_node: BPTreeNode<String, Vec<u8>> = BPTreeNode::new(NodeType::Internal, 3);
     assert_eq!(internal_node.node_type, NodeType::Internal);
-    
+
     // Internal nodes should function differently than leaf nodes when splitting
-    internal_node.insert("key1".to_string(), None, None).unwrap();
-    internal_node.insert("key2".to_string(), None, None).unwrap();
-    internal_node.insert("key3".to_string(), None, None).unwrap();
-    
+    internal_node
+        .insert("key1".to_string(), None, None)
+        .unwrap();
+    internal_node
+        .insert("key2".to_string(), None, None)
+        .unwrap();
+    internal_node
+        .insert("key3".to_string(), None, None)
+        .unwrap();
+
     // Adding a 4th entry should cause a split
-    let split_result = internal_node.insert("key4".to_string(), None, None).unwrap();
+    let split_result = internal_node
+        .insert("key4".to_string(), None, None)
+        .unwrap();
     assert!(split_result.is_some());
 }
 

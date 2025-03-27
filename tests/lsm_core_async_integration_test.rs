@@ -225,12 +225,10 @@ async fn test_async_memtable_capacity_limit() {
         assert_eq!(memtable.len().await.unwrap(), 0);
 
         // Now we can insert more
-        assert!(
-            memtable
-                .insert("new_key".to_string(), vec![99; 10])
-                .await
-                .is_ok()
-        );
+        assert!(memtable
+            .insert("new_key".to_string(), vec![99; 10])
+            .await
+            .is_ok());
     };
 
     // Run the test with a 10-second timeout

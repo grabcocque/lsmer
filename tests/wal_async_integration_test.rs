@@ -1,4 +1,4 @@
-use lsmer::wal::{RecordType, WAL_MAGIC, WAL_VERSION, WalError, WalRecord, WriteAheadLog};
+use lsmer::wal::{RecordType, WalError, WalRecord, WriteAheadLog, WAL_MAGIC, WAL_VERSION};
 use std::fs;
 use std::io::{Read, Seek, SeekFrom};
 use std::time::Duration;

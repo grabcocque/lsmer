@@ -68,11 +68,11 @@ impl SSTableReader {
     pub fn open(path: &str) -> io::Result<Self> {
         // Open the actual reader from the sstable module
         let reader = crate::sstable::SSTableReader::open(path)?;
-        
+
         // Extract information from the reader
         let entry_count = reader.entry_count();
         let has_bloom_filter = reader.has_bloom_filter();
-        
+
         Ok(Self {
             file_path: path.to_string(),
             reader: Some(reader),

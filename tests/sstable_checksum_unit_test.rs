@@ -1,9 +1,9 @@
-use std::time::Duration;
-use tokio::time::timeout;
 use lsmer::sstable::{SSTableReader, SSTableWriter};
 use std::fs;
 use std::io::ErrorKind;
+use std::time::Duration;
 use tempfile::tempdir;
+use tokio::time::timeout;
 
 // A single basic test that doesn't corrupt anything
 #[tokio::test]
@@ -16,14 +16,14 @@ async fn test_basic_read_write() {
             .to_str()
             .unwrap()
             .to_string();
-    
+
         // Create a minimal SSTable
         {
             let mut writer = SSTableWriter::new(&path, 1, false, 0.0).unwrap();
             writer.write_entry("test", b"value").unwrap();
             writer.finalize().unwrap();
         }
-    
+
         // Just verify we can read it back
         let mut reader = SSTableReader::open(&path).unwrap();
         let value = reader.get("test").unwrap();
@@ -47,21 +47,21 @@ async fn test_magic_number_corruption() {
             .to_str()
             .unwrap()
             .to_string();
-    
+
         // Create a basic SSTable
         {
             let mut writer = SSTableWriter::new(&path, 1, false, 0.0).unwrap();
             writer.write_entry("test", b"value").unwrap();
             writer.finalize().unwrap();
         }
-    
+
         // Corrupt just the first byte of the magic number
         let mut data = fs::read(&path).unwrap();
         if !data.is_empty() {
             data[0] = 0xAA; // Change just first byte
             fs::write(&path, &data).unwrap();
         }
-    
+
         // Should fail with clear error
         let result = SSTableReader::open(&path);
         assert!(result.is_err());
@@ -85,14 +85,14 @@ async fn test_version_validation() {
             .to_str()
             .unwrap()
             .to_string();
-    
+
         // Create a basic SSTable
         {
             let mut writer = SSTableWriter::new(&path, 1, false, 0.0).unwrap();
             writer.write_entry("test", b"value").unwrap();
             writer.finalize().unwrap();
         }
-    
+
         // Set version to an impossibly high number
         let mut data = fs::read(&path).unwrap();
         if data.len() >= 12 {
@@ -103,7 +103,7 @@ async fn test_version_validation() {
             data[11] = 0xFF;
             fs::write(&path, &data).unwrap();
         }
-    
+
         // Should fail with clear error about version
         let result = SSTableReader::open(&path);
         assert!(result.is_err());
@@ -129,14 +129,14 @@ async fn test_key_length_validation() {
             .to_str()
             .unwrap()
             .to_string();
-    
+
         // Create a valid SSTable first
         {
             let mut writer = SSTableWriter::new(&path, 1, false, 0.0).unwrap();
             writer.write_entry("test", b"value").unwrap();
             writer.finalize().unwrap();
         }
-    
+
         // Now modify the key length at the offset where first key would be
         // The offset is header size + some additional bytes - this test might need adjustment
         // based on actual file layout
@@ -146,13 +146,13 @@ async fn test_key_length_validation() {
             data[45] = 0xFF; // Set an impossibly large key length
             fs::write(&path, &data).unwrap();
         }
-    
+
         // Try to read the file - may fail with different errors, but shouldn't crash
         let mut reader = match SSTableReader::open(&path) {
             Ok(r) => r,
             Err(_) => return, // If it fails to open, that's fine too
         };
-    
+
         // If we got here, the reader opened successfully, but get() should fail safely
         let result = reader.get("test");
         // Should either return None or an error, but not crash

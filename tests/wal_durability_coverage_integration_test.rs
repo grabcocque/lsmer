@@ -252,11 +252,13 @@ async fn test_find_sstables_and_latest() {
             key: "test".to_string(),
             value: vec![1],
         }];
-        let sstable_files = [format!("{}/sstable_10000_12345.db", sstable_path),
+        let sstable_files = [
+            format!("{}/sstable_10000_12345.db", sstable_path),
             format!("{}/sstable_20000_12346.db", sstable_path),
             format!("{}/sstable_30000_12347.db", sstable_path),
             format!("{}/not_an_sstable.db", sstable_path),
-            format!("{}/temp_file.txt", sstable_path)];
+            format!("{}/temp_file.txt", sstable_path),
+        ];
 
         for path in &sstable_files[0..3] {
             create_simple_sstable(path, &pairs).await.unwrap();

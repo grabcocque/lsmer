@@ -1,5 +1,5 @@
-use lsmer::AsyncStringMemtable;
 use lsmer::memtable::MemtableError;
+use lsmer::AsyncStringMemtable;
 use std::fs;
 use std::io;
 use std::time::Duration;

@@ -1,5 +1,5 @@
-use lsmer::KeyValuePair;
 use lsmer::wal::durability::{DurabilityError, DurabilityManager, Operation};
+use lsmer::KeyValuePair;
 use std::fs;
 use std::path::Path;
 use std::time::Duration;

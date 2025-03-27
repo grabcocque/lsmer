@@ -52,8 +52,7 @@ async fn test_flush_and_recovery() {
         println!("Test directory set up");
 
         // Create LSM index with parameters known to work
-        let lsm =
-            LsmIndex::new(1024 * 1024, test_dir.to_string(), Some(3600), false, 0.0).unwrap();
+        let lsm = LsmIndex::new(1024 * 1024, test_dir.to_string(), Some(3600), false, 0.0).unwrap();
         println!("LSM index created");
 
         // Insert some data

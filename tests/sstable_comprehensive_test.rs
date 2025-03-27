@@ -1,6 +1,4 @@
-use lsmer::sstable::{
-    SSTableCompaction, SSTableInfo, SSTableReader, SSTableWriter, VERSION,
-};
+use lsmer::sstable::{SSTableCompaction, SSTableInfo, SSTableReader, SSTableWriter, VERSION};
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
