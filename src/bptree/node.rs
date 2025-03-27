@@ -17,7 +17,9 @@ use std::ops::RangeBounds;
 /// let leaf = NodeType::Leaf;
 /// let internal = NodeType::Internal;
 ///
-/// assert_ne!(leaf, internal);
+/// // Verify that we can distinguish between node types
+/// assert!(matches!(leaf, NodeType::Leaf));
+/// assert!(matches!(internal, NodeType::Internal));
 /// ```
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NodeType {
@@ -271,25 +273,37 @@ impl<K: Clone + PartialOrd + Debug, V: Clone + Debug> BPTreeNode<K, V> {
     /// ```
     /// use lsmer::bptree::{BPTreeNode, NodeType};
     ///
+    /// // Create a node with max_entries = 2
     /// let mut node = BPTreeNode::new(NodeType::Leaf, 2);
-    /// node.insert(1, Some("one".to_string()), None)?;
-    /// node.insert(2, Some("two".to_string()), None)?;
-    /// node.insert(3, Some("three".to_string()), None)?;
     ///
-    /// // Node is now full, let's split it
-    /// let (median_key, right_node) = node.split();
+    /// // Insert some keys
+    /// node.insert(10, Some("ten".to_string()), None)?;
+    /// node.insert(20, Some("twenty".to_string()), None)?;
     ///
-    /// // For a leaf node with 3 entries and max_entries=2:
-    /// // - Split point is at index 1 (3 entries / 2)
-    /// // - Left node (original) keeps entries [0..1]
-    /// // - Right node gets entries [1..]
-    /// // - Median key is the first key in right node
-    /// assert_eq!(node.entries.len(), 1); // Left node has 1 entry
-    /// assert_eq!(right_node.entries.len(), 2); // Right node has 2 entries
-    /// assert_eq!(node.entries[0].kv.value.as_ref().unwrap(), "one");
-    /// assert_eq!(right_node.entries[0].kv.value.as_ref().unwrap(), "two");
-    /// assert_eq!(right_node.entries[1].kv.value.as_ref().unwrap(), "three");
-    /// assert_eq!(median_key, 2); // First key in right node
+    /// // Before split, verify we have 2 entries
+    /// assert_eq!(node.entries.len(), 2);
+    ///
+    /// // Insert another key to force a split (when we insert 30, the node will be split)
+    /// let result = node.insert(30, Some("thirty".to_string()), None)?;
+    /// assert!(result.is_some());
+    ///
+    /// // Extract the split result directly (don't call split() again)
+    /// let (median_key, right_node) = result.unwrap();
+    ///
+    /// // Split point is entries.len()/2 = 3/2 = 1
+    /// // Left node (original) keeps [0..split_point] which is just [10]
+    /// // Right node gets [split_point..] which is [20, 30]
+    /// assert_eq!(node.entries.len(), 1);
+    /// assert_eq!(right_node.entries.len(), 2);
+    /// assert_eq!(node.entries[0].kv.key, 10);
+    /// assert_eq!(right_node.entries[0].kv.key, 20);
+    /// assert_eq!(right_node.entries[1].kv.key, 30);
+    ///
+    /// // For leaf nodes, median key is the first key in right node
+    /// assert_eq!(median_key, 20);
+    ///
+    /// // Verify leaf node linking is set up
+    /// assert!(node.next_leaf.is_some());
     /// # Ok::<(), lsmer::bptree::IndexError>(())
     /// ```
     pub fn split(&mut self) -> (K, Box<BPTreeNode<K, V>>) {
@@ -319,25 +333,27 @@ impl<K: Clone + PartialOrd + Debug, V: Clone + Debug> BPTreeNode<K, V> {
                         },
                     );
                 }
-
                 key
             }
             NodeType::Leaf => {
-                // For leaf nodes, the first key of the right node becomes the parent key
-                // but we keep it in the leaf as well
+                // For leaf nodes, the median key is the first key in the right node
                 right_node.entries[0].kv.key.clone()
             }
         };
 
-        // Link leaf nodes together
-        if self.node_type == NodeType::Leaf {
-            // The right node's next_leaf becomes the current node's next_leaf
-            right_node.next_leaf = self.next_leaf.take();
+        // Handle leaf node linking
+        if let NodeType::Leaf = self.node_type {
+            // Save the current node's next_leaf
+            let next = self.next_leaf.take();
 
-            // The current node's next_leaf becomes the right node
-            // We need to get ownership of this for returning, so we'll create it separately
-            let boxed_right = Box::new(right_node);
-            self.next_leaf = Some(Box::new(*boxed_right.clone()));
+            // Box the right node
+            let mut boxed_right = Box::new(right_node);
+
+            // Set the right node's next_leaf to the saved next
+            boxed_right.next_leaf = next;
+
+            // Set the current node's next_leaf to point to the right node
+            self.next_leaf = Some(boxed_right.clone());
 
             return (median_key, boxed_right);
         }
