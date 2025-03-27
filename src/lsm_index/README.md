@@ -5,76 +5,82 @@ The core module that orchestrates all LSM tree components and provides the main 
 ## Overview
 
 The LSM Index module is the heart of the system, coordinating between the memtable, SSTables, WAL, and other components to
-provide a unified key-value interface with ACID guarantees.
+provide a unified key-value interface with ACID guarantees. It uses a lock-free implementation based on crossbeam's SkipMap for high concurrency.
 
 ## Features
 
 - **Unified Interface**: Single entry point for all key-value operations
 - **Component Coordination**: Manages memtable, SSTables, and WAL
 - **Compaction Management**: Automatic background compaction
-- **Concurrent Access**: Thread-safe operations
+- **Lock-Free Implementation**: Highly concurrent operations using crossbeam-skiplist
 - **Configuration Options**: Flexible system tuning
+
+## Implementation Highlights
+
+- **Lock-Free Architecture**: Uses crossbeam's SkipMap for concurrent access without locks
+- **High Scalability**: Eliminates contention points during high-throughput operations
+- **Zero Deadlock Risk**: No locks means no deadlocks or livelocks
+- **Optimized for Multi-Threading**: Better performance under concurrent workloads
 
 ## Usage
 
 ```rust
 use lsmer::LsmIndex;
 
-// Create a new LSM index
-let mut index = LsmIndex::new("data_dir").await?;
+// Create a new LSM index with improved concurrency
+let lsm = LsmIndex::new(
+    1024 * 1024,        // Memtable capacity in bytes
+    "data_dir",         // Base directory for data
+    Some(3600),         // Optional compaction interval in seconds
+    true,               // Use bloom filters
+    0.01                // False positive rate for bloom filters
+)?;
 
-// Basic operations
-index.put("key", "value").await?;
-let value = index.get("key").await?;
-index.delete("key").await?;
+// Basic operations (all thread-safe and lock-free)
+lsm.insert("key".to_string(), vec![1, 2, 3])?;
+let value = lsm.get("key")?;
+lsm.remove("key")?;
 
-// Batch operations
-let batch = vec![
-    ("key1", Some("value1")),
-    ("key2", Some("value2")),
-    ("key3", None), // Delete
-];
-index.write_batch(batch).await?;
-
-// Range scan
-for (key, value) in index.range("key1"..="key2").await? {
-    println!("{}: {}", key, value);
+// Range queries
+for (key, value) in lsm.range("a".to_string().."z".to_string())? {
+    println!("{}: {:?}", key, value);
 }
 
-// Configure compaction
-index.set_compaction_threshold(0.7)?; // 70% full threshold
+// Flush to disk
+lsm.flush()?;
 ```
 
 ## Performance
 
-- **Write Performance**: O(1) for in-memory operations
-- **Read Performance**: O(log n) with Bloom filter optimization
+- **Write Performance**: O(log n) for lock-free concurrent inserts
+- **Read Performance**: O(log n) with Bloom filter optimization and no lock contention
 - **Space Efficiency**: Automatic compaction
 - **Durability**: Configurable through WAL
+- **Concurrency**: Near-linear scaling with multiple threads
 
 ## Implementation Details
 
 The LSM Index implementation includes:
 
+- Lock-free SkipMap for the in-memory index
 - Memtable management
 - SSTable coordination
 - WAL integration
 - Compaction scheduling
 - Bloom filter usage
-- Concurrent access patterns
 
 ## Component Interaction
 
 ```ascii
-[Client]
-   ↓
-[LSM Index]
-   ↓
-[Memtable] ←→ [WAL]
-   ↓
-[SSTables] ←→ [Bloom Filters]
-   ↓
-[Disk Storage]
+[Client Threads] ← Concurrent Access
+       ↓
+  [LSM Index]
+       ↓
+  [Lock-Free SkipMap] → [Memtable] ← [WAL]
+       ↓
+  [SSTables] ← [Bloom Filters]
+       ↓
+ [Disk Storage]
 ```
 
 ## Testing
@@ -82,7 +88,6 @@ The LSM Index implementation includes:
 The module includes comprehensive tests covering:
 
 - Basic CRUD operations
-- Batch operations
 - Range queries
 - Compaction
 - Crash recovery
@@ -92,5 +97,14 @@ The module includes comprehensive tests covering:
 Run the tests with:
 
 ```bash
-cargo test --package lsmer --lib lsm_index::tests
+cargo test --test lsm_index_async_test
 ```
+
+## Technical Implementation
+
+The SkipMap implementation is built on crossbeam-skiplist, which provides:
+
+- Wait-free reads: Readers never block, even during concurrent modifications
+- Lock-free writes: Writers use atomic operations instead of locks
+- Memory reclamation: Safe memory management through epoch-based reclamation
+- High scalability: Near-linear scaling with the number of cores
