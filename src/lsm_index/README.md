@@ -4,7 +4,8 @@ The core module that orchestrates all LSM tree components and provides the main 
 
 ## Overview
 
-The LSM Index module is the heart of the system, coordinating between the memtable, SSTables, WAL, and other components to provide a unified key-value interface with ACID guarantees.
+The LSM Index module is the heart of the system, coordinating between the memtable, SSTables, WAL, and other components to
+provide a unified key-value interface with ACID guarantees.
 
 ## Features
 
@@ -64,7 +65,7 @@ The LSM Index implementation includes:
 
 ## Component Interaction
 
-```
+```ascii
 [Client]
    ↓
 [LSM Index]

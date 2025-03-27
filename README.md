@@ -1,6 +1,7 @@
 # LSmer - High-Performance LSM Tree Implementation
 
-A blazing-fast, production-ready Log-Structured Merge (LSM) tree implementation in Rust. Perfect for high-throughput key-value storage with ACID guarantees.
+A blazing-fast, production-ready Log-Structured Merge (LSM) tree implementation in Rust.
+Perfect for high-throughput key-value storage with ACID guarantees.
 
 ## 🚀 Features
 

@@ -1,10 +1,11 @@
 # Memtable Module
 
-A high-performance in-memory buffer for recent writes in the LSM tree.
+A high-performance in-memory buffer for the LSM tree implementation.
 
 ## Overview
 
-The memtable is the first stop for all writes in an LSM tree. It provides fast in-memory access to recently written data before it's flushed to disk as an SSTable.
+The memtable serves as a write-optimized in-memory buffer that maintains sorted key-value pairs. When it reaches capacity,
+it is flushed to disk as an SSTable.
 
 ## Features
 

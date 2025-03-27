@@ -4,7 +4,8 @@ A high-performance Write-Ahead Logging implementation for ensuring data durabili
 
 ## Overview
 
-The Write-Ahead Log (WAL) ensures that all writes are durably stored on disk before being acknowledged. This provides ACID guarantees and enables crash recovery by replaying the log.
+The Write-Ahead Log ensures data durability by recording all operations before they are applied. This enables crash recovery
+and provides ACID guarantees through log replay.
 
 ## Features
 
@@ -60,7 +61,7 @@ The WAL implementation includes:
 
 ## File Format
 
-```
+```ascii
 [Log Header]
 [Record 1]
 [Record 2]

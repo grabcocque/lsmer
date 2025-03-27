@@ -1,14 +1,17 @@
 # Bloom Filter Module
 
-A high-performance, configurable Bloom filter implementation for probabilistic set membership testing.
+A high-performance, configurable Bloom filter implementation for probabilistic set
+membership testing.
 
 ## Overview
 
-The Bloom filter is a space-efficient probabilistic data structure that tells you whether an element is definitely not in a set or possibly in a set. It's perfect for reducing disk I/O in LSM trees by quickly determining if a key might exist in an SSTable.
+The Bloom filter is a space-efficient probabilistic data structure that tells you
+whether an element is definitely not in a set or possibly in a set. It's perfect for
+reducing disk I/O in LSM trees by quickly determining if a key might exist in an SSTable.
 
 ## Features
 
-- **Configurable False Positive Rate**: Set your desired false positive rate during initialization
+- **Configurable False Positive Rate**: Set your desired false positive rate
 - **Merge Operation**: Combine multiple Bloom filters efficiently
 - **Thread-Safe**: Built with async/await support
 - **Memory Efficient**: Optimized for both space and time complexity
@@ -42,8 +45,9 @@ filter.clear();
 ## Performance
 
 - Space complexity: O(n) where n is the number of expected elements
-- Time complexity: O(k) for insertions and lookups, where k is the number of hash functions
-- False positive rate is configurable and guaranteed to be within 2x of the target rate
+- Time complexity: O(k) for insertions and lookups, where k is the number of
+  hash functions
+- False positive rate is configurable and guaranteed to be within 2x of target
 
 ## Implementation Details
 

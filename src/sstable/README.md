@@ -4,7 +4,8 @@ A high-performance implementation of Sorted String Tables (SSTables) for disk-ba
 
 ## Overview
 
-SSTables are immutable, sorted key-value stores that provide efficient disk-based storage and retrieval. They are created from memtable flushes and are the foundation of the LSM tree's disk layer.
+SSTables provide efficient, immutable disk storage for sorted key-value pairs. They are created when memtables are flushed
+to disk and form the persistent storage layer of the LSM tree.
 
 ## Features
 
@@ -57,7 +58,7 @@ The SSTable implementation includes:
 
 ## File Format
 
-```
+```ascii
 [Data Block 1]
 [Data Block 2]
 ...

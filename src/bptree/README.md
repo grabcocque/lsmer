@@ -4,7 +4,9 @@ A high-performance B+ tree implementation optimized for disk-based storage and e
 
 ## Overview
 
-The B+ tree is a self-balancing tree data structure that maintains sorted data and allows searches, sequential access, insertions, and deletions in logarithmic time. It's particularly well-suited for disk-based storage systems like LSM trees.
+The B+ tree is a self-balancing tree data structure that maintains sorted data and allows efficient operations. It provides
+searches, sequential access, insertions, and deletions in logarithmic time. This implementation is particularly well-suited
+for disk-based storage systems like LSM trees.
 
 ## Features
 
