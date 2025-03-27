@@ -51,6 +51,10 @@ name = "lsm_index_async_test"
 path = "tests/lsm_index_async_integration_test.rs"
 
 [[test]]
+name = "lsm_index_lock_free_test"
+path = "tests/lsm_index_lock_free_test.rs"
+
+[[test]]
 name = "bptree_core_test"
 path = "tests/bptree_core_unit_test.rs"
 
