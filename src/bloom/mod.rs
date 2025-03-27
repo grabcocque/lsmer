@@ -4,6 +4,27 @@ use std::marker::PhantomData;
 
 /// A Bloom filter implementation using double hashing technique
 /// to reduce the number of required hash functions.
+///
+/// A Bloom filter is a space-efficient probabilistic data structure that is used to test whether an element
+/// is a member of a set. False positive matches are possible, but false negatives are not.
+///
+/// # Examples
+///
+/// ```
+/// use lsmer::bloom::BloomFilter;
+///
+/// // Create a new Bloom filter with expected 1000 elements and 1% false positive rate
+/// let mut filter: BloomFilter<&str> = BloomFilter::new(1000, 0.01);
+///
+/// // Insert some elements
+/// filter.insert(&"apple");
+/// filter.insert(&"banana");
+///
+/// // Check if elements might be in the set
+/// assert!(filter.may_contain(&"apple"));
+/// assert!(filter.may_contain(&"banana"));
+/// assert!(!filter.may_contain(&"grape")); // Might return false positive
+/// ```
 #[derive(Debug, Clone)]
 pub struct BloomFilter<T> {
     /// Bit array to store the filter data
@@ -17,8 +38,24 @@ pub struct BloomFilter<T> {
 }
 
 impl<T: Hash> BloomFilter<T> {
-    /// Create a new Bloom filter with optimal parameters for the expected number of elements
+    /// Creates a new Bloom filter with optimal parameters for the expected number of elements
     /// and desired false positive rate.
+    ///
+    /// # Arguments
+    ///
+    /// * `expected_elements` - The expected number of elements to be inserted into the filter
+    /// * `false_positive_rate` - The desired false positive rate (0.0 to 1.0)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// // Create a filter for 1000 elements with 1% false positive rate
+    /// let filter: BloomFilter<&str> = BloomFilter::new(1000, 0.01);
+    /// assert_eq!(filter.size_bits() > 0, true);
+    /// assert_eq!(filter.num_hashes() > 0, true);
+    /// ```
     pub fn new(expected_elements: usize, false_positive_rate: f64) -> Self {
         // Safety check for expected elements and false positive rate
         let expected_elements = if expected_elements == 0 {
@@ -69,7 +106,21 @@ impl<T: Hash> BloomFilter<T> {
         }
     }
 
-    /// Insert an element into the Bloom filter
+    /// Inserts an element into the Bloom filter.
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The element to insert
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// filter.insert(&"test");
+    /// assert!(filter.may_contain(&"test"));
+    /// ```
     pub fn insert(&mut self, item: &T) {
         let (h1, h2) = self.get_hash_values(item);
 
@@ -79,7 +130,25 @@ impl<T: Hash> BloomFilter<T> {
         }
     }
 
-    /// Check if an element might be in the Bloom filter
+    /// Checks if an element might be in the Bloom filter.
+    ///
+    /// Returns `true` if the element might be in the set, `false` if it definitely is not.
+    /// Note that false positives are possible, but false negatives are not.
+    ///
+    /// # Arguments
+    ///
+    /// * `item` - The element to check
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// filter.insert(&"test");
+    /// assert!(filter.may_contain(&"test"));
+    /// assert!(!filter.may_contain(&"not_inserted")); // Might return false positive
+    /// ```
     pub fn may_contain(&self, item: &T) -> bool {
         let (h1, h2) = self.get_hash_values(item);
 
@@ -132,7 +201,21 @@ impl<T: Hash> BloomFilter<T> {
         (self.bits[byte_index] & (1 << bit_offset)) != 0
     }
 
-    /// Get the false positive rate of the filter
+    /// Calculates the current false positive rate of the filter based on the number of elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_elements` - The current number of elements in the filter
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let filter: BloomFilter<&str> = BloomFilter::new(1000, 0.01);
+    /// let fpr = filter.false_positive_rate(500);
+    /// assert!(fpr > 0.0 && fpr <= 1.0);
+    /// ```
     pub fn false_positive_rate(&self, num_elements: usize) -> f64 {
         // p = (1 - e^(-kn/m))^k
         let k = self.num_hashes as f64;
@@ -142,17 +225,61 @@ impl<T: Hash> BloomFilter<T> {
         (1.0 - std::f64::consts::E.powf(-k * n / m)).powf(k)
     }
 
-    /// Get the number of bits in the filter
+    /// Returns the size of the filter in bits.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let filter: BloomFilter<&str> = BloomFilter::new(1000, 0.01);
+    /// assert!(filter.size_bits() > 0);
+    /// ```
     pub fn size_bits(&self) -> usize {
         self.size_bits
     }
 
-    /// Get the number of hash functions used
+    /// Returns the number of hash functions used by the filter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let filter: BloomFilter<&str> = BloomFilter::new(1000, 0.01);
+    /// assert!(filter.num_hashes() > 0);
+    /// ```
     pub fn num_hashes(&self) -> usize {
         self.num_hashes
     }
 
-    /// Merge another Bloom filter into this one
+    /// Merges another Bloom filter into this one.
+    ///
+    /// Both filters must have the same size and number of hash functions.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The Bloom filter to merge into this one
+    ///
+    /// # Returns
+    ///
+    /// * `Result<(), &'static str>` - Ok if merge successful, Err if filters are incompatible
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter1: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// let mut filter2: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    ///
+    /// filter1.insert(&"apple");
+    /// filter2.insert(&"banana");
+    ///
+    /// filter1.merge(&filter2).unwrap();
+    /// assert!(filter1.may_contain(&"apple"));
+    /// assert!(filter1.may_contain(&"banana"));
+    /// ```
     pub fn merge(&mut self, other: &Self) -> Result<(), &'static str> {
         if self.size_bits != other.size_bits || self.num_hashes != other.num_hashes {
             return Err("Cannot merge Bloom filters of different sizes or hash counts");
@@ -165,30 +292,98 @@ impl<T: Hash> BloomFilter<T> {
         Ok(())
     }
 
-    /// Clear the Bloom filter
+    /// Clears all elements from the Bloom filter.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// filter.insert(&"test");
+    /// filter.clear();
+    /// assert!(!filter.may_contain(&"test"));
+    /// ```
     pub fn clear(&mut self) {
         for byte in &mut self.bits {
             *byte = 0;
         }
     }
 
-    /// Get a reference to the internal bit array for serialization
+    /// Returns a reference to the internal bit array for serialization.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// let bits = filter.get_bits();
+    /// assert!(!bits.is_empty());
+    /// ```
     pub fn get_bits(&self) -> &[u8] {
         &self.bits
     }
 
-    /// Set the internal bit array for deserialization
+    /// Sets the internal bit array for deserialization.
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - The bit array to set
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// let bits = vec![0; 13]; // Size for 100 bits
+    /// filter.set_bits(bits);
+    /// ```
     pub fn set_bits(&mut self, bits: Vec<u8>) {
         self.bits = bits;
     }
 
-    /// Set parameters for a deserialized Bloom filter
+    /// Sets the parameters for a deserialized Bloom filter.
+    ///
+    /// # Arguments
+    ///
+    /// * `size_bits` - The size of the filter in bits
+    /// * `num_hashes` - The number of hash functions used
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let mut filter: BloomFilter<&str> = BloomFilter::new(100, 0.01);
+    /// filter.set_parameters(1000, 7);
+    /// assert_eq!(filter.size_bits(), 1000);
+    /// assert_eq!(filter.num_hashes(), 7);
+    /// ```
     pub fn set_parameters(&mut self, size_bits: usize, num_hashes: usize) {
         self.size_bits = size_bits;
         self.num_hashes = num_hashes;
     }
 
-    /// Create a Bloom filter from existing parts
+    /// Creates a Bloom filter from existing parts.
+    ///
+    /// # Arguments
+    ///
+    /// * `bits` - The bit array
+    /// * `size_bits` - The size of the filter in bits
+    /// * `num_hashes` - The number of hash functions used
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use lsmer::bloom::BloomFilter;
+    ///
+    /// let bits = vec![0; 13]; // Size for 100 bits
+    /// let filter: BloomFilter<&str> = BloomFilter::from_parts(bits, 100, 7);
+    /// assert_eq!(filter.size_bits(), 100);
+    /// assert_eq!(filter.num_hashes(), 7);
+    /// ```
     pub fn from_parts(bits: Vec<u8>, size_bits: usize, num_hashes: usize) -> Self {
         // Safety checks
         let size_bits = if size_bits == 0 {
