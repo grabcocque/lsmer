@@ -242,7 +242,11 @@ async fn test_bptree_node_operations() {
     assert!(split_result.is_some());
     let (median_key, right_node) = split_result.unwrap();
 
-    // Median key should be key3 for a 3-entry node split
+    // For a leaf node with max_entries=3, when inserting a 4th entry:
+    // - Split point is at index 2 (4 entries / 2)
+    // - Left node keeps entries [0..2]
+    // - Right node gets entries [2..4]
+    // - Median key is the first key in right node ("key3")
     assert_eq!(median_key, "key3");
 
     // Original node should have 2 entries, right node should have 2 entries
